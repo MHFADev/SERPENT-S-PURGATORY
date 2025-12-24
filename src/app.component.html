@@ -1,0 +1,306 @@
+<div class="relative w-full h-full bg-black select-none font-nosifer overflow-hidden transition-all duration-1000 ease-in-out" 
+     [class.invert]="game.glitchActive()"
+     [class.rotate-2]="game.hallucinationEffect() === 'TILT'"
+     [class.scale-110]="game.hallucinationEffect() === 'BREATHE'"
+     [class.sepia]="game.hallucinationEffect() === 'WARP'"
+     [class.brightness-50]="game.hallucinationEffect() === 'DARKNESS'">
+  
+  <!-- Canvas Layer (z-0) -->
+  <canvas #gameCanvas class="absolute inset-0 block w-full h-full transition-transform duration-75"
+          [class.scale-105]="game.glitchActive()"
+          [class.translate-x-1]="game.glitchActive()"></canvas>
+
+  <!-- VFX Layers (z-10, z-11) defined in CSS -->
+  <div class="scanlines"></div>
+  <div class="vignette"></div>
+
+  <!-- MAIN MENU (z-50) -->
+  @if (game.state() === 'MENU') {
+    <div class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/90 text-center p-4">
+      <!-- Added pointer-events-none to title wrapper to be safe -->
+      <h1 class="text-4xl md:text-7xl text-red-700 glitch font-bold mb-8 pointer-events-none" [attr.data-text]="loc.t.TITLE">{{ loc.t.TITLE }}</h1>
+      
+      <div class="flex flex-col gap-4 w-64 pointer-events-auto relative z-50">
+        <button (click)="handleStart()" class="glitch-btn px-6 py-3 border-2 border-red-800 text-red-600 hover:bg-red-900/30 transition-colors uppercase tracking-widest text-xl relative">
+           {{ loc.t.PLAY }}
+        </button>
+        <button (click)="handleGoToLevels()" class="px-6 py-3 border border-gray-800 text-gray-500 hover:text-red-500 hover:border-red-900 transition-colors uppercase relative">
+           {{ loc.t.LEVELS }}
+        </button>
+        <button (click)="handleGoToSettings()" class="px-6 py-3 border border-gray-800 text-gray-500 hover:text-red-500 hover:border-red-900 transition-colors uppercase relative">
+           {{ loc.t.SETTINGS }}
+        </button>
+        <button (click)="handleGoToTutorial()" class="px-6 py-3 border border-gray-800 text-gray-500 hover:text-red-500 hover:border-red-900 transition-colors uppercase relative">
+           {{ loc.t.HELP }}
+        </button>
+        <button (click)="loc.toggleLang()" class="mt-4 text-xs text-gray-700 hover:text-gray-400 relative">
+           LANGUAGE: {{ loc.t.LANG_NAME }}
+        </button>
+      </div>
+    </div>
+  }
+
+  <!-- SETTINGS MENU -->
+  @if (game.state() === 'SETTINGS') {
+    <div class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/95 p-8 overflow-y-auto pointer-events-auto">
+        <h2 class="text-3xl text-red-600 mb-6">{{ loc.t.SETTINGS }}</h2>
+        
+        <div class="w-full max-w-sm space-y-6 pb-20 relative z-50">
+            
+            <!-- Controls Section -->
+            <h3 class="text-xl text-gray-300 border-b border-gray-800 pb-2">INPUT</h3>
+            
+            <!-- Size -->
+            <div>
+                <div class="flex justify-between text-gray-400 mb-1">
+                    <span>{{ loc.t.SET_SIZE }}</span>
+                    <span>{{ input.controlSize() | number:'1.1-1' }}x</span>
+                </div>
+                <input type="range" min="0.5" max="2.0" step="0.1" 
+                       [value]="input.controlSize()" 
+                       (input)="onSettingChange('size', $event)"
+                       class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-red-600">
+            </div>
+
+            <!-- Opacity -->
+            <div>
+                <div class="flex justify-between text-gray-400 mb-1">
+                    <span>{{ loc.t.SET_OPACITY }}</span>
+                    <span>{{ input.controlOpacity() | percent }}</span>
+                </div>
+                <input type="range" min="0.1" max="1.0" step="0.1" 
+                       [value]="input.controlOpacity()" 
+                       (input)="onSettingChange('opacity', $event)"
+                       class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-red-600">
+            </div>
+
+            <!-- Pos X -->
+            <div>
+                <div class="flex justify-between text-gray-400 mb-1">
+                    <span>{{ loc.t.SET_X }}</span>
+                    <span>{{ input.controlXOffset() }}px</span>
+                </div>
+                <input type="range" min="0" max="100" step="5" 
+                       [value]="input.controlXOffset()" 
+                       (input)="onSettingChange('x', $event)"
+                       class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-red-600">
+            </div>
+
+            <!-- Pos Y -->
+             <div>
+                <div class="flex justify-between text-gray-400 mb-1">
+                    <span>{{ loc.t.SET_Y }}</span>
+                    <span>{{ input.controlYOffset() }}px</span>
+                </div>
+                <input type="range" min="0" max="100" step="5" 
+                       [value]="input.controlYOffset()" 
+                       (input)="onSettingChange('y', $event)"
+                       class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-red-600">
+            </div>
+            
+            <!-- Game Horror Section -->
+            <h3 class="text-xl text-gray-300 border-b border-gray-800 pb-2 mt-8">{{ loc.t.SET_HORROR }}</h3>
+            
+            <!-- Sanity FX -->
+             <div class="flex justify-between items-center">
+                <span class="text-gray-400">{{ loc.t.SET_SANITY_JS }}</span>
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" [checked]="game.settingSanityFX()" (change)="onGameSettingChange('sanity', $event)" class="sr-only peer">
+                  <div class="relative w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                </label>
+            </div>
+
+            <!-- Random Scares -->
+             <div class="flex justify-between items-center">
+                <span class="text-gray-400">{{ loc.t.SET_RANDOM_JS }}</span>
+                <label class="inline-flex items-center cursor-pointer">
+                  <input type="checkbox" [checked]="game.settingRandomScares()" (change)="onGameSettingChange('random', $event)" class="sr-only peer">
+                  <div class="relative w-11 h-6 bg-gray-700 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full rtl:peer-checked:after:-translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:start-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-red-600"></div>
+                </label>
+            </div>
+
+            <!-- Glitch Intensity -->
+            <div>
+                <div class="flex justify-between text-gray-400 mb-1">
+                    <span>{{ loc.t.SET_GLITCH }}</span>
+                    <span>
+                      @if(game.settingGlitchIntensity() === 0) { {{ loc.t.OPT_OFF }} }
+                      @else if(game.settingGlitchIntensity() <= 0.5) { {{ loc.t.OPT_LOW }} }
+                      @else if(game.settingGlitchIntensity() <= 1.0) { {{ loc.t.OPT_MED }} }
+                      @else { {{ loc.t.OPT_HIGH }} }
+                    </span>
+                </div>
+                <input type="range" min="0" max="2.0" step="0.5" 
+                       [value]="game.settingGlitchIntensity()" 
+                       (input)="onGameSettingChange('glitch', $event)"
+                       class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-red-600">
+            </div>
+
+
+            <button (click)="input.resetSettings()" class="text-xs text-red-900 hover:text-red-500 w-full text-right pt-4 relative">{{ loc.t.RESET }}</button>
+        </div>
+
+        <button (click)="game.goToMenu()" class="fixed bottom-4 left-1/2 -translate-x-1/2 md:static md:translate-x-0 md:mt-8 text-gray-500 hover:text-white border border-gray-700 px-6 py-2 uppercase bg-black z-50 relative">{{ loc.t.BACK }}</button>
+        
+        <!-- Preview of a D-Pad button for context -->
+        <div class="absolute bottom-10 left-10 opacity-50 pointer-events-none border border-dashed border-gray-600 p-2 hidden md:block">
+            <div [style.width.px]="64 * input.controlSize()" [style.height.px]="64 * input.controlSize()" class="border border-white/50 rounded-full flex items-center justify-center text-white/50">Preview</div>
+        </div>
+    </div>
+  }
+
+  <!-- LEVEL SELECT -->
+  @if (game.state() === 'LEVELS') {
+    <div class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/95 p-8 pointer-events-auto">
+        <h2 class="text-3xl text-red-600 mb-6">{{ loc.t.LEVELS }}</h2>
+        <div class="grid grid-cols-5 gap-4 max-w-2xl relative z-50">
+            @for (lvl of levels(); track lvl) {
+                <button 
+                  (click)="game.selectLevel(lvl)"
+                  [disabled]="lvl > game.maxLevel()"
+                  [class.opacity-30]="lvl > game.maxLevel()"
+                  [class.border-red-600]="lvl <= game.maxLevel()"
+                  [class.text-red-600]="lvl <= game.maxLevel()"
+                  class="w-12 h-12 border flex flex-col items-center justify-center hover:bg-red-900/50 relative overflow-hidden group"
+                >
+                    <span class="text-lg font-bold">{{ lvl }}</span>
+                    @if (game.highScores()[lvl]) {
+                       <span class="text-[0.5rem] text-red-400 absolute bottom-0.5">{{ game.highScores()[lvl] }}</span>
+                    }
+                </button>
+            }
+        </div>
+        <button (click)="game.goToMenu()" class="mt-8 text-gray-500 hover:text-white relative z-50">{{ loc.t.BACK }}</button>
+    </div>
+  }
+
+  <!-- TUTORIAL -->
+  @if (game.state() === 'TUTORIAL') {
+    <div class="absolute inset-0 flex flex-col items-center justify-center z-50 bg-black/95 p-8 text-center pointer-events-auto">
+        <h2 class="text-3xl text-red-600 mb-6">{{ loc.t.HELP }}</h2>
+        <div class="text-gray-400 text-lg whitespace-pre-line leading-relaxed max-w-md border border-gray-800 p-6 bg-gray-900/20">
+            {{ loc.t.HELP_TEXT }}
+        </div>
+        <button (click)="game.goToMenu()" class="mt-8 text-gray-500 hover:text-white relative z-50">{{ loc.t.BACK }}</button>
+    </div>
+  }
+
+  <!-- HUD (PLAYING) -->
+  @if (game.state() === 'PLAYING') {
+    <div class="absolute top-4 left-4 z-20 font-bold text-red-600 text-sm md:text-xl pointer-events-none">
+       LEVEL {{ game.level() }}
+    </div>
+    
+    <!-- Objective Bar -->
+    <div class="absolute top-4 left-1/2 -translate-x-1/2 z-20 pointer-events-none">
+        <div class="bg-black/50 border border-red-900 px-4 py-1 text-red-500 text-sm md:text-lg uppercase tracking-wider shadow-[0_0_10px_red]">
+            {{ getObjectiveText() }}
+        </div>
+    </div>
+
+    <!-- Sanity Bar -->
+    <div class="absolute top-4 right-4 z-20 w-32 md:w-48 pointer-events-none">
+      <div class="text-right text-xs text-gray-500 mb-1">{{ loc.t.SANITY }}</div>
+      <div class="h-2 w-full bg-gray-900 border border-gray-700">
+        <div class="h-full bg-red-800 transition-all duration-300" 
+             [style.width.%]="game.sanity()"
+             [class.animate-pulse]="game.sanity() < 30">
+        </div>
+      </div>
+    </div>
+  }
+
+  <!-- Jumpscare (Death/Major) -->
+  @if (game.jumpscareActive()) {
+    <div class="absolute inset-0 z-[100] bg-black flex items-center justify-center shake pointer-events-none">
+       <img [src]="getGhostImageSrc()" class="w-full h-full object-cover opacity-80 mix-blend-hard-light" />
+    </div>
+  }
+
+  <!-- Subliminal Flash (Minor) -->
+  @if (game.subliminalActive()) {
+     <div class="absolute inset-0 z-[90] pointer-events-none bg-red-900/50 mix-blend-overlay flex items-center justify-center">
+        <img [src]="getGhostImageSrc()" class="w-full h-full object-contain opacity-30 grayscale contrast-200" />
+     </div>
+  }
+
+  <!-- Game Over -->
+  @if (game.state() === 'GAMEOVER') {
+    <div class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-red-900/20 backdrop-blur-sm pointer-events-auto">
+      <h2 class="text-5xl text-red-600 glitch mb-4 pointer-events-none" [attr.data-text]="loc.t.DIED">{{ loc.t.DIED }}</h2>
+      <div class="flex gap-4 relative z-50">
+          <button (click)="handleStart()" class="px-6 py-2 border border-red-600 text-red-600 hover:bg-red-900/50 uppercase">
+            {{ loc.t.TRY_AGAIN }}
+          </button>
+          <button (click)="game.goToMenu()" class="px-6 py-2 border border-gray-600 text-gray-400 hover:bg-gray-900/50 uppercase">
+            {{ loc.t.BACK }}
+          </button>
+      </div>
+    </div>
+  }
+
+  <!-- Win / Level Complete -->
+  @if (game.state() === 'WIN') {
+    <div class="absolute inset-0 z-50 flex flex-col items-center justify-center bg-green-900/10 backdrop-blur-sm pointer-events-auto">
+      <h2 class="text-4xl text-white mb-2">{{ loc.t.WIN }}</h2>
+      <p class="text-red-400 mb-8">{{ loc.t.SANITY }}: {{ game.sanity() | number:'1.0-0' }}%</p>
+      <div class="flex gap-4 relative z-50">
+          <button (click)="game.selectLevel(game.level() + 1)" class="px-6 py-2 bg-red-900 text-white hover:bg-red-800 uppercase">
+            {{ loc.t.NEXT }}
+          </button>
+           <button (click)="game.goToMenu()" class="px-6 py-2 border border-gray-600 text-gray-400 hover:bg-gray-900/50 uppercase">
+            {{ loc.t.BACK }}
+          </button>
+      </div>
+    </div>
+  }
+
+  <!-- Mobile Controls (SVG) -->
+  @if (input.isMobile() && game.state() === 'PLAYING') {
+    <div class="absolute z-40 w-48 h-48 pointer-events-auto"
+         [style.bottom.px]="input.controlYOffset()"
+         [style.left.px]="input.controlXOffset()"
+         [style.opacity]="input.controlOpacity()"
+         [style.transform]="'scale(' + input.controlSize() + ')'"
+         style="transform-origin: bottom left;">
+       <!-- D-PAD SVGs -->
+       <!-- UP -->
+       <div (touchstart)="handleTouch(Dir.UP, $event)" class="absolute top-0 left-1/2 -translate-x-1/2 w-16 h-16 active:scale-95 transition-transform">
+         <svg viewBox="0 0 100 100" class="w-full h-full fill-white/50 stroke-white active:fill-white/80 active:stroke-white">
+             <path d="M50 10 L90 90 L50 70 L10 90 Z" />
+         </svg>
+       </div>
+       <!-- LEFT -->
+       <div (touchstart)="handleTouch(Dir.LEFT, $event)" class="absolute top-1/2 left-0 -translate-y-1/2 w-16 h-16 active:scale-95 transition-transform">
+         <svg viewBox="0 0 100 100" class="w-full h-full fill-white/50 stroke-white active:fill-white/80 active:stroke-white">
+            <path d="M10 50 L90 90 L70 50 L90 10 Z" />
+         </svg>
+       </div>
+       <!-- RIGHT -->
+       <div (touchstart)="handleTouch(Dir.RIGHT, $event)" class="absolute top-1/2 right-0 -translate-y-1/2 w-16 h-16 active:scale-95 transition-transform">
+         <svg viewBox="0 0 100 100" class="w-full h-full fill-white/50 stroke-white active:fill-white/80 active:stroke-white">
+            <path d="M90 50 L10 90 L30 50 L10 10 Z" />
+         </svg>
+       </div>
+       <!-- DOWN -->
+       <div (touchstart)="handleTouch(Dir.DOWN, $event)" class="absolute bottom-0 left-1/2 -translate-x-1/2 w-16 h-16 active:scale-95 transition-transform">
+         <svg viewBox="0 0 100 100" class="w-full h-full fill-white/50 stroke-white active:fill-white/80 active:stroke-white">
+            <path d="M50 90 L90 10 L50 30 L10 10 Z" />
+         </svg>
+       </div>
+    </div>
+
+    <!-- Action Button -->
+    <div class="absolute z-40 w-24 h-24 active:scale-95 transition-transform pointer-events-auto"
+         [style.bottom.px]="input.controlYOffset() + 10"
+         [style.right.px]="input.controlXOffset() + 10"
+         [style.opacity]="input.controlOpacity()"
+         [style.transform]="'scale(' + input.controlSize() + ')'"
+         style="transform-origin: bottom right;">
+        <svg viewBox="0 0 100 100" class="w-full h-full fill-white/30 stroke-white active:fill-white/60">
+           <circle cx="50" cy="50" r="45" stroke-width="2" />
+           <path d="M50 20 L70 40 L60 40 L60 80 L40 80 L40 40 L30 40 Z" class="fill-white" />
+        </svg>
+    </div>
+  }
+</div>

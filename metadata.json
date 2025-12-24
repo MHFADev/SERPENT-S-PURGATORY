@@ -1,0 +1,7 @@
+{
+  "name": "SERPENT'S PURGATORY",
+  "description": "A psychological horror snake puzzle game. Survive the darkness, maintain your sanity, and escape the purgatory.",
+  "requestFramePermissions": [
+    "microphone"
+  ]
+}
