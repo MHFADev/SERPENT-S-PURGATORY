@@ -71,7 +71,9 @@ export class AppComponent implements AfterViewInit {
   }
 
   getGhostImageSrc() {
-      const idx = Math.floor(Math.random() * this.assets.ghostImages.length);
+      // Use the stable index from GameLogicService to prevent ExpressionChangedAfterItHasBeenCheckedError
+      if (this.assets.ghostImages.length === 0) return '';
+      const idx = this.game.currentGhostIndex() % this.assets.ghostImages.length;
       return this.assets.ghostImages[idx]?.src || '';
   }
 

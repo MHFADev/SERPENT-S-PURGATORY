@@ -26,6 +26,9 @@ export class GameLogicService {
   subliminalActive = signal(false); // Quick flash
   glitchActive = signal(false); // CSS chromatic aberration/invert
   hallucinationEffect = signal<HallucinationType>('NONE'); // Sustained visual effects
+  
+  // Stable random seed for ghost images to prevent ExpressionChangedAfterItHasBeenCheckedError
+  currentGhostIndex = signal(0);
 
   // Horror Settings
   settingSanityFX = signal(true);
@@ -149,14 +152,115 @@ export class GameLogicService {
 
   private generateLevel() {
     this.walls = [];
-    const wallCount = 10 + (this.level() * 3);
-    for(let i=0; i<wallCount; i++) {
+    const lvl = this.level();
+
+    // Level Generation Logic
+    if (lvl <= 3) {
+        // Levels 1-3: Pure Random scatter
+        this.genRandom(10 + lvl * 3);
+    } else if (lvl <= 6) {
+        // Levels 4-6: Random + Lines
+        this.genLines(3 + Math.floor((lvl - 3) / 2));
+        this.genRandom(8);
+    } else if (lvl <= 9) {
+        // Levels 7-9: Corners + Lines
+        this.genCorners(3 + Math.floor((lvl - 6) / 2));
+        this.genLines(2);
+        this.genRandom(5);
+    } else if (lvl <= 12) {
+        // Levels 10-12: Boxes + Corners
+        this.genBoxes(2 + Math.floor((lvl - 9) / 2));
+        this.genCorners(2);
+        this.genRandom(8);
+    } else if (lvl <= 15) {
+        // Levels 13-15: Crosses + Boxes
+        this.genCrosses(3);
+        this.genBoxes(2);
+        this.genLines(3);
+    } else {
+        // Levels 16+: Chaos Mix
+        this.genCrosses(2);
+        this.genCorners(4);
+        this.genBoxes(2);
+        this.genLines(4);
+        this.genRandom(10);
+    }
+
+    // Safety: Remove any walls that might have spawned on the snake's starting position
+    const snakeSet = new Set(this.snake.map(s => `${s.x},${s.y}`));
+    this.walls = this.walls.filter(w => !snakeSet.has(`${w.x},${w.y}`));
+
+    this.respawnFood();
+  }
+
+  private genRandom(count: number) {
+      for(let i=0; i<count; i++) {
         this.walls.push({
             x: Math.floor(Math.random() * this.gridWidth),
             y: Math.floor(Math.random() * this.gridHeight)
         });
-    }
-    this.respawnFood();
+      }
+  }
+
+  private genLines(count: number) {
+      for(let i=0; i<count; i++) {
+          const isHorz = Math.random() > 0.5;
+          const len = 3 + Math.floor(Math.random() * 6); // Length 3 to 8
+          const startX = Math.floor(Math.random() * (this.gridWidth - (isHorz ? len : 0)));
+          const startY = Math.floor(Math.random() * (this.gridHeight - (!isHorz ? len : 0)));
+          
+          for(let j=0; j<len; j++) {
+              this.walls.push({
+                  x: startX + (isHorz ? j : 0),
+                  y: startY + (!isHorz ? j : 0)
+              });
+          }
+      }
+  }
+
+  private genCorners(count: number) {
+      for(let i=0; i<count; i++) {
+          const len = 3 + Math.floor(Math.random() * 3);
+          const x = Math.floor(Math.random() * (this.gridWidth - len));
+          const y = Math.floor(Math.random() * (this.gridHeight - len));
+          
+          // L-Shape: Top-Left corner drawn down and right
+          for(let j=0; j<len; j++) {
+              this.walls.push({x: x+j, y: y}); // Horizontal leg
+              this.walls.push({x: x, y: y+j}); // Vertical leg
+          }
+      }
+  }
+
+  private genBoxes(count: number) {
+      for(let i=0; i<count; i++) {
+          const w = 4 + Math.floor(Math.random() * 4); // 4 to 7
+          const h = 4 + Math.floor(Math.random() * 4);
+          const x = Math.floor(Math.random() * (this.gridWidth - w));
+          const y = Math.floor(Math.random() * (this.gridHeight - h));
+          
+          // Generate hollow box
+          for(let bx=0; bx<w; bx++) {
+              for(let by=0; by<h; by++) {
+                  if(bx===0 || bx===w-1 || by===0 || by===h-1) {
+                      this.walls.push({x: x+bx, y: y+by});
+                  }
+              }
+          }
+      }
+  }
+
+  private genCrosses(count: number) {
+      for(let i=0; i<count; i++) {
+          const x = 2 + Math.floor(Math.random() * (this.gridWidth - 4));
+          const y = 2 + Math.floor(Math.random() * (this.gridHeight - 4));
+          
+          this.walls.push({x, y}); // Center
+          this.walls.push({x: x-1, y}); // Left
+          this.walls.push({x: x+1, y}); // Right
+          this.walls.push({x, y: y-1}); // Up
+          this.walls.push({x, y: y+1}); // Down
+      }
   }
 
   private respawnFood() {
@@ -217,7 +321,8 @@ export class GameLogicService {
         food: this.food,
         walls: this.walls,
         key: this.key,
-        door: this.door
+        door: this.door,
+        sanity: this.sanity()
     });
 
     this.loopId = requestAnimationFrame(this.loop);
@@ -367,6 +472,7 @@ export class GameLogicService {
 
   private triggerSubliminal() {
       if (this.subliminalActive()) return;
+      this.currentGhostIndex.set(Math.floor(Math.random() * 100)); // Set stable random
       this.subliminalActive.set(true);
       this.audio.playSuddenNoise(); // Short sharp sound
       setTimeout(() => this.subliminalActive.set(false), 100); // 100ms flash
@@ -380,6 +486,7 @@ export class GameLogicService {
 
   private triggerJumpscare(deadly: boolean = false) {
       if (this.jumpscareActive()) return;
+      this.currentGhostIndex.set(Math.floor(Math.random() * 100)); // Set stable random
       this.jumpscareActive.set(true);
       this.audio.playScreech();
       setTimeout(() => {

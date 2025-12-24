@@ -92,7 +92,8 @@
                     <span>{{ loc.t.SET_Y }}</span>
                     <span>{{ input.controlYOffset() }}px</span>
                 </div>
-                <input type="range" min="0" max="100" step="5" 
+                <!-- Increased max range from 100 to 350 to allow moving controls higher up -->
+                <input type="range" min="0" max="350" step="5" 
                        [value]="input.controlYOffset()" 
                        (input)="onSettingChange('y', $event)"
                        class="w-full h-2 bg-gray-800 rounded-lg appearance-none cursor-pointer accent-red-600">
